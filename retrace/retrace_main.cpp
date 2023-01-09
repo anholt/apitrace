@@ -812,6 +812,7 @@ usage(const char *argv0) {
         "      --per-frame-delay=MICROSECONDS   add extra delay after each frame (in addition to min-frame-duration)\n"
         "  -w, --wait              waitOnFinish on final frame\n"
         "      --loop[=N]          loop N times (N<0 continuously) replaying final frame.\n"
+        "      --loopsecs[=N]      loop N seconds replaying final frame.\n"
         "      --watchdog          invokes abort() if retrace of a single api call will take more than " << retrace::RetraceWatchdog::TimeoutInSec << " seconds\n"
         "      --singlethread      use a single thread to replay command stream\n"
         "      --ignore-retvals    ignore return values in wglMakeCurrent, etc\n"
@@ -846,6 +847,7 @@ enum {
     MIN_FRAME_DURATION_OPT,
     PER_FRAME_DELAY_OPT,
     LOOP_OPT,
+    LOOP_SECS_OPT,
     SINGLETHREAD_OPT,
     IGNORE_RETVALS_OPT,
     NO_CONTEXT_CHECK,
@@ -908,6 +910,7 @@ longOptions[] = {
     {"min-frame-duration", required_argument, 0, MIN_FRAME_DURATION_OPT},
     {"per-frame-delay", required_argument, 0, PER_FRAME_DELAY_OPT},
     {"loop", optional_argument, 0, LOOP_OPT},
+    {"loopsecs", optional_argument, 0, LOOP_SECS_OPT},
     {"singlethread", no_argument, 0, SINGLETHREAD_OPT},
     {"ignore-retvals", no_argument, 0, IGNORE_RETVALS_OPT},
     {"no-context-check", no_argument, 0, NO_CONTEXT_CHECK},
@@ -1121,6 +1124,7 @@ int main(int argc, char **argv)
 {
     using namespace retrace;
     int loopCount = 0;
+    int loopSecs = 0;
     int i;
     bool snapshotThreaded = false;
 
@@ -1298,6 +1302,10 @@ int main(int argc, char **argv)
         case LOOP_OPT:
             loopCount = trace::intOption(optarg, -1);
             break;
+        case LOOP_SECS_OPT:
+            loopSecs = trace::intOption(optarg, -1);
+            loopCount = -1;
+            break;
         case PFRAMETIMES_OPT:
             retrace::debug = 0;
             retrace::profiling = true;
@@ -1444,7 +1452,7 @@ int main(int argc, char **argv)
         for (i = optind; i < argc; ++i) {
             parser = new trace::Parser;
             if (loopCount) {
-                parser = lastFrameLoopParser(parser, loopCount);
+                parser = lastFrameLoopParser(parser, loopCount, loopSecs);
             }
 
             if (!parser->open(argv[i])) {

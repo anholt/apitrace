@@ -25,6 +25,7 @@
 
 
 #include "trace_parser.hpp"
+#include "os_time.hpp"
 
 
 namespace trace {
@@ -33,10 +34,13 @@ namespace trace {
 // Decorator for parser which loops
 class LastFrameLoopParser : public AbstractParser  {
 public:
-    LastFrameLoopParser(AbstractParser *p, int c) {
+    LastFrameLoopParser(AbstractParser *p, int c, int s) {
         parser = p;
         loopCount = c;
+        loopSecs = s;
         starts_new_frame = true;
+        startTime = 0;
+        lastFrameCount = 0;
     }
 
     ~LastFrameLoopParser() {
@@ -57,6 +61,11 @@ public:
     const Properties & getProperties(void) const override { return parser->getProperties(); }
 private:
     int loopCount;
+
+    int loopSecs;
+    long long startTime;
+    int lastFrameCount;
+
     bool starts_new_frame;
     AbstractParser *parser;
     std::vector<Call *> lastFrameCalls;
@@ -99,9 +108,29 @@ LastFrameLoopParser::parse_call(void)
         call = *lastFrameIterator;
         ++lastFrameIterator;
         if (lastFrameIterator == lastFrameCalls.end()) {
-            /* repeat the frame */
-            lastFrameIterator = lastFrameCalls.begin();
-            --loopCount;
+            if (loopSecs) {
+                if (startTime == 0) {
+                    /* First loop, start measuring. */
+                    startTime = os::getTime();
+                } else {
+                    long long endTime = os::getTime();
+                    float timeInterval = (endTime - startTime) * (1.0 / os::timeFrequency);
+                    if (timeInterval >= loopSecs) {
+                        std::cout <<
+                            "Rendered the last frame " << lastFrameCount << " times"
+                            " in " <<  timeInterval << " secs,"
+                            " average of " << (lastFrameCount/timeInterval) << " fps\n";
+                        loopCount = 0;
+                    }
+                }
+            }
+
+            if (loopCount) {
+                /* repeat the frame */
+                lastFrameIterator = lastFrameCalls.begin();
+                --loopCount;
+                lastFrameCount++;
+            }
         }
     }
 
@@ -110,9 +139,9 @@ LastFrameLoopParser::parse_call(void)
 
 
 AbstractParser *
-lastFrameLoopParser(AbstractParser *parser, int loopCount)
+lastFrameLoopParser(AbstractParser *parser, int loopCount, int loop_secs)
 {
-    return new LastFrameLoopParser(parser, loopCount);
+    return new LastFrameLoopParser(parser, loopCount, loop_secs);
 }
 
 

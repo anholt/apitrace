@@ -272,7 +272,7 @@ protected:
 
 
 AbstractParser *
-lastFrameLoopParser(AbstractParser *parser, int loopCount);
+lastFrameLoopParser(AbstractParser *parser, int loopCount, int loopSecs);
 
 
 } /* namespace trace */
